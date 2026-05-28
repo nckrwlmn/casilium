@@ -186,11 +186,17 @@ class TicketRepository extends EntityRepository implements TicketRepositoryInter
     {
         $qb = $this->getEntityManager()->createQueryBuilder();
         $qb->select('t')
-            ->from(Ticket::class, 't')
-            ->orderBy('t.type', 'DESC')
-            ->addOrderBy('t.status')
-            ->addOrderBy('t.priority')
-            ->addOrderBy('t.dueDate');
+            ->from(Ticket::class, 't');
+
+        // apply sort order
+        if (isset($options['order_by']) && $options['order_by'] === 'newest') {
+            $qb->orderBy('t.id', 'DESC');
+        } else {
+            $qb->orderBy('t.type', 'DESC')
+                ->addOrderBy('t.status')
+                ->addOrderBy('t.priority')
+                ->addOrderBy('t.dueDate');
+        }
 
         // apply status filter: explicit status_id takes priority, otherwise use default
         if (isset($options['status_id'])) {

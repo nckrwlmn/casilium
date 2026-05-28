@@ -81,7 +81,8 @@ class SearchTicketHandler implements RequestHandlerInterface
             }
         }
 
-        $options = $filters;
+        $options             = $filters;
+        $options['order_by'] = 'newest';
 
         // include all statuses when no specific status filter is set
         if (! isset($options['status_id'])) {
