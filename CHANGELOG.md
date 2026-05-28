@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.1.2 - 2026-05-28
+
+### Changed
+
+- Updated changelog
+
+
+### Fixed
+
+- update dependencies to patch symfony/mime CVEs
+
+
 ## v2.1.1 - 2026-02-24
 
 ### Changed
