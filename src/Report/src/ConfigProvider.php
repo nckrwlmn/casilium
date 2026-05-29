@@ -42,7 +42,9 @@ class ConfigProvider
             ],
             'factories'  => [
                 Command\ExecutiveReportSend::class    => Command\Factory\ExecutiveReportSendFactory::class,
+                Command\SlaDocumentSend::class        => Command\Factory\SlaDocumentSendFactory::class,
                 Handler\ExecutiveReportHandler::class => Handler\Factory\ExecutiveReportHandlerFactory::class,
+                Handler\SlaDocumentHandler::class     => Handler\Factory\SlaDocumentHandlerFactory::class,
                 Service\PdfService::class             => Service\Factory\PdfServiceFactory::class,
                 Service\ReportService::class          => Service\Factory\ReportServiceFactory::class,
             ],
@@ -81,6 +83,7 @@ class ConfigProvider
         return [
             'commands' => [
                 Command\ExecutiveReportSend::class,
+                Command\SlaDocumentSend::class,
             ],
         ];
     }

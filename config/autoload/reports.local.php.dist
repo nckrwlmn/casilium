@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'reports' => [
+        'company' => [
+            'name'          => 'Your Company Name',
+            'subtitle'      => 'Your Company Managed Services',
+            'email'         => 'info@example.com',
+            'address'       => [
+                'address_line_1' => 'Your Company Limited',
+                'address_line_2' => '123 Business Street',
+                'city'           => 'City',
+                'state'          => '',
+                'postcode'       => 'AB1 2CD',
+                'country'        => 'United Kingdom',
+            ],
+            'prepared_by'   => [
+                'name' => 'John Smith',
+                'role' => 'Director',
+            ],
+            'support_email' => 'support@example.com',
+            'support_phone' => '+44 0000 000000',
+            'logo_path'     => '',
+            'version'       => '',
+        ],
+    ],
+];

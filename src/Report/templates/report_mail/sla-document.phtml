@@ -1,0 +1,16 @@
+<?php
+
+declare(strict_types=1);
+
+use Organisation\Entity\Organisation;
+
+/** @var Organisation $this->organisation */
+?>
+<p>Hello,</p>
+
+<p>
+    Please find attached the Service Level Agreement document for
+    <?= $this->escapeHtml($this->organisation->getName()) ?>.
+</p>
+
+<p>Regards,</p>

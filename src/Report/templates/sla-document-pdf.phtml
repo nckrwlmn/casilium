@@ -1,0 +1,647 @@
+<?php
+
+declare(strict_types=1);
+
+use Organisation\Entity\Organisation;
+use ServiceLevel\Entity\SlaTarget;
+use Ticket\Entity\Priority;
+
+/** @var Organisation $this->organisation */
+/** @var array<int, SlaTarget> $this->slaTargets */
+/** @var array<int, array{day: string, active: bool, start: ?string, end: ?string}> $this->schedule */
+/** @var array<string, mixed> $this->company */
+
+$organisationName = $this->organisation->getName();
+$company          = $this->company;
+$companyName      = $company['name'] ?? '';
+$companySubtitle  = $company['subtitle'] ?? '';
+$contactEmail     = $company['email'] ?? '';
+$address          = $company['address'] ?? [];
+$preparedByName   = $company['prepared_by']['name'] ?? '';
+$preparedByRole   = $company['prepared_by']['role'] ?? '';
+$supportEmail     = $company['support_email'] ?? '';
+$supportPhone     = $company['support_phone'] ?? '';
+
+function humanReadableTime($seconds) {
+    if (empty($seconds) || ! is_numeric($seconds)) {
+        return false;
+    }
+
+    $minutes       = round($seconds / 60);
+    $hours         = floor($minutes / 60);
+    $remainMinutes = ($minutes % 60);
+
+    $result = '';
+    $result .= ($hours > 0)
+        ? ($hours > 1 ? sprintf('%s Hours ', $hours) : sprintf('%s Hour', $hours))
+        : null;
+
+    $result .= ($remainMinutes > 0)
+        ? ($remainMinutes > 1 ? sprintf(' %s Minutes', $remainMinutes) : sprintf(' %s Minute', $remainMinutes))
+        : null;
+
+    return $result;
+}
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            margin: 54pt;
+            size: A4 portrait;
+        }
+
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.4;
+            color: #000;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            font-size: 22pt;
+            margin: 0 0 8pt 0;
+        }
+
+        h2 {
+            font-size: 16pt;
+            margin: 20pt 0 8pt 0;
+            color: #4472c4;
+        }
+
+        h3 {
+            font-size: 13pt;
+            margin: 14pt 0 6pt 0;
+        }
+
+        h4 {
+            font-size: 11pt;
+            margin: 10pt 0 4pt 0;
+        }
+
+        p {
+            margin: 0 0 8pt 0;
+        }
+
+        table.doc {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10pt 0 16pt 0;
+            font-size: 10pt;
+        }
+
+        table.doc th {
+            background-color: #4472c4;
+            color: #fff;
+            padding: 6pt 8pt;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        table.doc td {
+            padding: 6pt 8pt;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        table.doc tr:nth-child(even) td {
+            background-color: #e9edf4;
+        }
+
+        table.sla {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10pt 0 16pt 0;
+            font-size: 11pt;
+        }
+
+        table.sla th {
+            background-color: #4472c4;
+            color: #fff;
+            padding: 8pt 10pt;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        table.sla td {
+            padding: 8pt 10pt;
+            text-align: left;
+            background-color: #e9edf4;
+            border-bottom: 1px solid #ddd;
+        }
+
+        ol {
+            margin: 4pt 0 8pt 0;
+            padding-left: 20pt;
+        }
+
+        ol ol {
+            list-style-type: lower-alpha;
+        }
+
+        ol ol ol {
+            list-style-type: lower-roman;
+        }
+
+        li {
+            margin-bottom: 4pt;
+        }
+
+        ul {
+            margin: 4pt 0 8pt 0;
+            padding-left: 20pt;
+        }
+
+        .page-break {
+            page-break-before: always;
+        }
+
+        .cover {
+            text-align: center;
+            padding-top: 180pt;
+        }
+
+        .cover h1 {
+            font-size: 28pt;
+            margin-bottom: 12pt;
+        }
+
+        .cover .subtitle {
+            font-size: 14pt;
+            margin-bottom: 6pt;
+        }
+
+        .cover .org-name {
+            font-size: 16pt;
+            font-weight: bold;
+            margin: 24pt 0 12pt 0;
+        }
+
+        .cover .confidential {
+            font-size: 12pt;
+            font-style: italic;
+            margin-top: 40pt;
+            color: #666;
+        }
+
+        .cover .version {
+            font-size: 11pt;
+            margin-top: 8pt;
+            color: #666;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: -28pt;
+            right: 0;
+            left: 0;
+            text-align: right;
+            font-size: 9pt;
+            color: #666;
+        }
+
+        .footer:before {
+            content: "Page " counter(page);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Cover Page -->
+    <div class="cover">
+        <?php if ($this->logoPath !== ''): ?>
+        <img src="<?= $this->escapeHtmlAttr($this->logoPath) ?>" width="220">
+        <?php endif ?>
+        <h1>Service Level Agreement (SLA)</h1>
+        <?php if ($companySubtitle !== ''): ?>
+        <p class="subtitle">For <?= $this->escapeHtml($companySubtitle) ?></p>
+        <?php endif ?>
+        <p class="org-name"><?= $this->escapeHtml($organisationName) ?></p>
+        <?php if (($company['version'] ?? '') !== ''): ?>
+        <p class="version">Version: <?= $this->escapeHtml($company['version']) ?></p>
+        <?php endif ?>
+        <p class="confidential">Private &amp; Confidential</p>
+        <p class="confidential">Document produced from current service level configuration on <?= date('j F Y') ?></p>
+    </div>
+
+    <!-- Document Control -->
+    <div class="page-break"></div>
+    <h2>Document Control</h2>
+
+    <h3>Prepared By</h3>
+    <table class="doc">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Function</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><?= $this->escapeHtml($preparedByName) ?></td>
+                <td><?= $this->escapeHtml($preparedByRole) ?></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <?php if ($companyName !== ''): ?>
+    <h3><?= $this->escapeHtml($companyName) ?> Contact Details</h3>
+    <table class="doc">
+        <thead>
+            <tr>
+                <th>Address</th>
+                <th>Contact Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <?= implode('<br>', array_map([$this, 'escapeHtml'], array_values(array_filter($address)))) ?>
+                </td>
+                <td><?= $this->escapeHtml($contactEmail) ?></td>
+            </tr>
+        </tbody>
+    </table>
+    <?php endif ?>
+
+    <!-- Introduction and Sections 1-3 -->
+    <div class="page-break"></div>
+
+    <p>This Service Level Agreement (this &ldquo;SLA&rdquo;) governs the use of services under the terms of the Master Services Agreement (the &ldquo;Agreement&rdquo;), between Client and <?= $this->escapeHtml($companyName) ?> Limited (&ldquo;<?= $this->escapeHtml($companyName) ?>&rdquo;, &ldquo;we&rdquo; or &ldquo;us&rdquo;) and is subject to all of the terms and conditions of the Agreement. <?= $this->escapeHtml($companyName) ?> may update, amend, modify or supplement this SLA from time to time. The terms and conditions of this SLA are applicable to <?= $this->escapeHtml($companyName) ?> managed IT services only, and &ldquo;Service&rdquo; or &ldquo;Services&rdquo; as used in this SLA refers only to the <?= $this->escapeHtml($companyName) ?> managed IT services as detailed in Section 1.</p>
+
+    <p>Capitalised terms used herein but not otherwise defined will have their respective meanings set forth in the Agreement. In the event of any conflict between this SLA and the Agreement, the Agreement will govern.</p>
+
+    <h2>1. Service Provided by <?= $this->escapeHtml($companyName) ?></h2>
+
+    <p><?= $this->escapeHtml($companyName) ?> will use commercially reasonable efforts to provide the Services as defined in the Agreement. Client has chosen to engage us to provide comprehensive managed IT services (the &ldquo;Services&rdquo;). The Services consist of our providing proactive information technology (IT) support as described in this SLA and detailed in Section 1.1 below, for Client&rsquo;s designated infrastructure (&ldquo;Client&rsquo;s Network&rdquo;) which will be described in the as-completed system summary that we will design and periodically update (the &ldquo;Client Systems Summary&rdquo;). Client will have an opportunity to review and accept the Client Systems Summary as amended from time to time. After the Client Systems Summary has been accepted by the Client, or deemed accepted if Client does not reject or correct it within 10 days, then the Client Systems Summary will be incorporated as part of this SLA.</p>
+
+    <h3>1.1 Included Services</h3>
+
+    <table class="sla">
+        <thead>
+            <tr>
+                <th>Service</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Remote Monitoring and Management</td>
+                <td>Proactive monitoring, alerting, and maintenance of Client endpoints and servers.</td>
+            </tr>
+            <tr>
+                <td>Endpoint Security</td>
+                <td>Automated threat detection and response across all managed endpoints.</td>
+            </tr>
+            <tr>
+                <td>Managed Threat Detection</td>
+                <td>Ongoing analysis of the Client&rsquo;s environment for persistent threats and indicators of compromise.</td>
+            </tr>
+            <tr>
+                <td>DNS and Web Filtering</td>
+                <td>Blocking of known malicious domains and inappropriate content at the network level.</td>
+            </tr>
+            <tr>
+                <td>Remote Support</td>
+                <td>Remote troubleshooting and resolution of incidents and service requests.</td>
+            </tr>
+            <tr>
+                <td>Firewall Management</td>
+                <td>Provision, configuration, and ongoing management of the Client&rsquo;s network firewall.</td>
+            </tr>
+            <tr>
+                <td>Server Backup</td>
+                <td>Image-based backup of designated servers to enable recovery in the event of data loss or hardware failure.</td>
+            </tr>
+            <tr>
+                <td>Cloud Backup</td>
+                <td>Backup of the Client&rsquo;s cloud-hosted data, including email and productivity suite data.</td>
+            </tr>
+            <tr>
+                <td>Security Incident Response</td>
+                <td>Containment, investigation, and remediation of security incidents affecting the Client&rsquo;s Network.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>All Services listed above are provided as a single, comprehensive package. The specific systems, endpoints, and infrastructure covered under each service category are documented in the Client Systems Summary. <?= $this->escapeHtml($companyName) ?> may update the tools and technologies used to deliver the Services from time to time, provided that the nature and quality of the Services are maintained.</p>
+
+    <h3>1.2 Security Responsibility</h3>
+
+    <p>As part of the Services, <?= $this->escapeHtml($companyName) ?> assumes responsibility for the deployment, configuration, and management of the Client&rsquo;s endpoint security, threat detection, DNS filtering, and firewall infrastructure. <?= $this->escapeHtml($companyName) ?> will use commercially reasonable efforts to protect the Client&rsquo;s Network from security threats. However, no security solution can guarantee prevention of all threats. <?= $this->escapeHtml($companyName) ?> shall not be held liable for security breaches resulting from zero-day vulnerabilities, novel attack methods, or threats that bypass properly deployed and maintained security controls, nor for incidents caused by the Client&rsquo;s failure to follow security guidance provided by us.</p>
+
+    <h2>2. Services Outside of Agreement</h2>
+
+    <p>We may provide additional services to assist the Client in the operation of the Client&rsquo;s Network in addition to the &ldquo;Services&rdquo; in this SLA, but only as specifically requested by the Client in writing and accepted by an authorised officer of <?= $this->escapeHtml($companyName) ?> in writing. The request will include a detailed description of work and the authorised amount of time, in half hour increments, to perform the work. <?= $this->escapeHtml($companyName) ?> may evaluate and revise the request (including estimated number of hours to perform work) and reserves the right, in its sole discretion, to decline any request. Any additional services will be performed at <?= $this->escapeHtml($companyName) ?>&rsquo; standard published rates. <?= $this->escapeHtml($companyName) ?> will use commercially reasonable efforts to perform requested additional services. However, <?= $this->escapeHtml($companyName) ?> does not guarantee any particular result from performance of additional services or make any representation or warranty regarding such additional services, nor can it be held liable in any way (including for any credits) for service performance changes or failures resulting from <?= $this->escapeHtml($companyName) ?> performing tasks requested by the Client. <?= $this->escapeHtml($companyName) ?> may require a separate agreement for any of these additional services.</p>
+
+    <h2>3. Transition Period</h2>
+
+    <p>The &ldquo;Transition Period&rdquo; for services under this SLA is estimated to be no longer than 30 days after the Service Commencement Date. <?= $this->escapeHtml($companyName) ?> and the Client agree that <?= $this->escapeHtml($companyName) ?> will need SLA flexibility during the Transition Period, as during the transition phase, overall operations are being ramped up and require time for proper setup, knowledge transfer, and stabilisation. All SLAs and associated credit and remedies are waived during the Transition Period.</p>
+
+    <!-- Section 4 - Dynamic -->
+    <div class="page-break"></div>
+    <h2>4. Support Services Response and Resolution Times</h2>
+
+    <p>Subject to the limitations contained in this Agreement and this SLA, we shall provide the Services for the Client&rsquo;s Network as designated in the Client System Summary; provided the Client shall have paid the applicable fees in accordance with this SLA. The Client shall have telephone access to the <?= $this->escapeHtml($companyName) ?> support staff during normal working hours. Calls will be handled in accordance with the following table showing targets of response and resolution times for each priority level.</p>
+
+    <h3>4.1 Accepted Methods of Communication</h3>
+
+    <p>Support requests are accepted exclusively through the following channels:</p>
+
+    <ul>
+        <?php if ($supportEmail !== ''): ?>
+        <li>Email: <?= $this->escapeHtml($supportEmail) ?></li>
+        <?php endif ?>
+        <?php if ($supportPhone !== ''): ?>
+        <li>Telephone: <?= $this->escapeHtml($supportPhone) ?></li>
+        <?php endif ?>
+    </ul>
+
+    <p>Only requests submitted through the channels listed above will be recorded in our support system. Requests received through any other method cannot be tracked, and therefore cannot be guaranteed a response or resolution.</p>
+
+    <h3>4.2 Business Hours (<?= $this->escapeHtml($this->timezone) ?>)</h3>
+
+    <table class="sla">
+        <thead>
+            <tr>
+                <th>Day</th>
+                <th>Hours</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($this->schedule as $entry): ?>
+            <tr>
+                <td><?= $this->escapeHtml($entry['day']) ?></td>
+                <td>
+                    <?php if ($entry['active'] && $entry['start'] !== null): ?>
+                        <?= $this->escapeHtml($entry['start']) ?> &ndash; <?= $this->escapeHtml($entry['end']) ?>
+                    <?php else: ?>
+                        Closed
+                    <?php endif ?>
+                </td>
+            </tr>
+            <?php endforeach ?>
+        </tbody>
+    </table>
+
+    <h3>4.3 Response and Resolution Times</h3>
+
+    <table class="sla">
+        <thead>
+            <tr>
+                <th>Priority</th>
+                <th>Response Time</th>
+                <th>Resolution Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($this->slaTargets as $priorityId => $target): ?>
+            <tr>
+                <td><?= $this->escapeHtml(Priority::getPriorityDescription($priorityId)) ?></td>
+                <td><?= $this->escapeHtml(humanReadableTime($target->getTimeInSeconds($target->getResponseTime()))) ?></td>
+                <td><?= $this->escapeHtml(humanReadableTime($target->getTimeInSeconds($target->getResolveTime()))) ?></td>
+            </tr>
+            <?php endforeach ?>
+        </tbody>
+    </table>
+
+    <p>Response and resolution times are specified in working hours.</p>
+
+    <!-- Section 5 -->
+    <div class="page-break"></div>
+    <h2>5. Support Tiers</h2>
+
+    <p>The following table details and describes <?= $this->escapeHtml($companyName) ?> support tier levels:</p>
+
+    <table class="sla">
+        <thead>
+            <tr>
+                <th>Support Tier</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Tier 1 Support</td>
+                <td>All support incidents begin in Tier 1, where the initial trouble ticket is created. The issue is identified and clearly documented, and basic hardware/software trouble shooting is initiated.</td>
+            </tr>
+            <tr>
+                <td>Tier 2 Support</td>
+                <td>All support incidents that cannot be resolved within Tier 1 Support are escalated to Tier 2, where more complex support on hardware/software issues can be provided by more experienced engineers.</td>
+            </tr>
+            <tr>
+                <td>Tier 3 Support</td>
+                <td>All support incidents that cannot be resolved by Tier 2 Support are escalated to Tier 3, where support is provided by our most qualified and experienced engineers who have the ability to collaborate with third-party support engineers to resolve most complex issues.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Section 6 -->
+    <h2>6. Service Request Escalation Procedure</h2>
+
+    <p>All service requests follow the process below. Upon receipt, a trouble ticket is created and the issue is identified and documented in our Help Desk system. The request then enters the escalation path:</p>
+
+    <table class="sla">
+        <thead>
+            <tr>
+                <th>Tier</th>
+                <th>Entry Criteria</th>
+                <th>If Unresolved</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Tier 1 Support</td>
+                <td>All incidents start here. Basic hardware and software troubleshooting is initiated.</td>
+                <td>Escalated to Tier 2</td>
+            </tr>
+            <tr>
+                <td>Tier 2 Support</td>
+                <td>More complex troubleshooting by experienced engineers.</td>
+                <td>Escalated to Tier 3</td>
+            </tr>
+            <tr>
+                <td>Tier 3 Support</td>
+                <td>Senior engineers with the ability to collaborate with third-party support to resolve the most complex issues.</td>
+                <td>Escalated to Onsite Support</td>
+            </tr>
+            <tr>
+                <td>Onsite Support</td>
+                <td>On-site troubleshooting and resolution at the Client&rsquo;s premises.</td>
+                <td>Escalated to senior management</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>At each tier, once the issue is resolved, the following steps are completed:</p>
+
+    <ol>
+        <li>The issue is worked to successful resolution.</li>
+        <li>Quality control &ndash; the resolution is verified to the Client&rsquo;s satisfaction.</li>
+        <li>Complete problem resolution details are updated in the Help Desk system.</li>
+        <li>The trouble ticket is closed.</li>
+    </ol>
+
+    <p>If the issue cannot be resolved through Onsite Support, the matter is escalated to senior management at <?= $this->escapeHtml($companyName) ?> for review, with complete details of all activity performed at each tier.</p>
+
+    <!-- Section 7 -->
+    <div class="page-break"></div>
+    <h2>7. Performance Goals</h2>
+
+    <p>We will determine whether we have met any of the Services Goals described below and the service levels under this SLA. We reserve the right to change or discontinue Service Goals and service levels.</p>
+
+    <h3>7.1 Monitoring Goal</h3>
+
+    <p>The Monitoring Goal is measured from the time an outage is detected by our monitoring systems until such outage is reported to the Client by the agreed upon notification method. The goal is considered met once our monitoring system sends a notification to the Client. Receipt or lack of receipt of the notification by the Client will not be considered as part of goal monitoring.</p>
+
+    <h3>7.2 Initial Response Time Goal</h3>
+
+    <p>The Initial Response Time Goal is measured from the time an issue is first reported to us by the Client until the issue has been responded to with an initial email or phone call. Resolution of the issue will not be considered to be part of Initial Response Time Goal.</p>
+
+    <h3>7.3 Credits</h3>
+
+    <p>If we fail to meet any of the Service Goals listed in Section 7.1 or 7.2, the Client shall be eligible for a credit as the Client&rsquo;s sole and exclusive remedy for such failure. Credits will be calculated as a percentage of the fees for the Services for the current monthly billing period in which the failure occurred (to be applied at the end of the billing cycle). If we fail to achieve a Service Goal in a calendar month due to any cause other than Service Goal Exclusions described in Section 7.4 below, then the Client shall receive a credit in the amount set forth in the table below, up to a maximum of the fees the client has paid for the current month to us for one month&rsquo;s Services.</p>
+
+    <table class="sla">
+        <thead>
+            <tr>
+                <th>Goal Description</th>
+                <th>Initial Response Time</th>
+                <th>Remedy (credit) for failure to meet Initial Response Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Monitoring Goal</td>
+                <td>30 Minutes</td>
+                <td>Each failure to meet the goal qualifies Client for a credit of 1% of monthly Services fees per event.</td>
+            </tr>
+            <?php foreach ($this->slaTargets as $priorityId => $target): ?>
+            <tr>
+                <td>Trouble <?= $this->escapeHtml(Priority::getPriorityDescription($priorityId)) ?></td>
+                <td><?= $this->escapeHtml(humanReadableTime($target->getTimeInSeconds($target->getResponseTime()))) ?></td>
+                <td><?php if ($priorityId <= 3): ?>Each failure to meet the goal qualifies the Client for a credit of 2% of monthly Services fees per Event.<?php else: ?>Response times for this priority are performance targets and are not subject to service credits.<?php endif ?></td>
+            </tr>
+            <?php endforeach ?>
+        </tbody>
+    </table>
+
+    <p>For the purposes of this section, an &ldquo;Event&rdquo; is defined as a single incident or related group of incidents affecting the same service or system. Multiple incidents affecting the same service within a 60-minute period shall constitute a single Event. Monitoring alerts triggered by outages lasting less than five (5) continuous minutes are not considered Events for credit purposes.</p>
+
+    <p>Service credits apply to Initial Response Time goals only. Resolution Times stated in Section 4.3 are performance targets and are not subject to service credits.</p>
+
+    <p>The maximum credit may not exceed 50% of one month&rsquo;s Service fee. The month begins on the first day of each calendar month and continues until the last day of that month. No more than one credit is applicable to any Event. No more than five (5) Events per priority level shall be eligible for credit in any single calendar month. Events beyond this threshold are logged and reviewed but do not generate additional credits.</p>
+
+    <h3>7.4 Service Goal Exclusions</h3>
+
+    <p>Service levels do not apply to, and we are not responsible for, failure to meet Service Goals resulting from:</p>
+
+    <ul>
+        <li>Client or end-user misconduct;</li>
+        <li>Failure or deficient power, equipment or service not provided by us;</li>
+        <li>Delay caused or requested by Client;</li>
+        <li>Service interruptions, deficiencies, degradation or delays due to access lines, cables or equipment provided by third-parties;</li>
+        <li>Failure to provide suitable secure environment for on-premises devices, including secure mounting and racking, appropriate cooling and air handling, security from theft;</li>
+        <li>Failure of any equipment not managed under a service contract with us;</li>
+        <li>Widespread service disruptions affecting multiple clients simultaneously due to upstream provider failures, datacentre outages, or internet backbone interruptions beyond our reasonable control; or</li>
+        <li>Causes listed in Section 8 of the Agreement.</li>
+    </ul>
+
+    <!-- Sections 8-11 -->
+    <div class="page-break"></div>
+    <h2>8. Service Exclusions</h2>
+
+    <p>Our providing the Services under this SLA is conditioned on Client&rsquo;s compliance with each of the following conditions:</p>
+
+    <ul>
+        <li>Client shall be in compliance with the Agreement, including all Exhibits and this SLA.</li>
+        <li>Client shall be in compliance with all manuals and instructions for hardware, firmware and software.</li>
+        <li>Client shall not have altered the software, shall have used only Supported Software and shall have complied with all configuration requirements.</li>
+    </ul>
+
+    <h3>8.1 Excluded Services</h3>
+
+    <p>Services rendered under this SLA do not include:</p>
+
+    <ul>
+        <li>Equipment service or repair made necessary due to unreasonable adverse environmental condition or equipment applications beyond those for which the equipment was designated;</li>
+        <li>Client&rsquo;s equipment room was not properly designed for the equipment;</li>
+        <li>Service by <?= $this->escapeHtml($companyName) ?> necessitated due to adverse conditions created by acts of God or building modifications;</li>
+        <li>Service interruptions, deficiencies, degradations or delays due to any access lines, cabling or equipment provided by third-parties;</li>
+        <li>Service and repair made necessary by the repair, alteration or modification of equipment covered by this SLA, other than that authorised by us or an authorised service agency;</li>
+        <li>Repairs, alterations, software installations or modifications of equipment made by employees or agents of the Client;</li>
+        <li>Recoveries of any software, data, file structures, or file security necessitated due to a crashed hard drive;</li>
+        <li>Maintenance of applications software packages, whether acquired from us or any other source;</li>
+        <li>Programming (modification of software code) and program (software) maintenance;</li>
+        <li>Security incidents resulting from the Client disabling, removing, or interfering with managed security agents, or from the Client ignoring security guidance provided by us;</li>
+        <li>Security breaches caused by zero-day vulnerabilities, novel threats, or attack methods that bypass properly deployed and maintained security tooling;</li>
+        <li>Data loss where the Client has declined, obstructed, or failed to cooperate with recommended backup procedures or testing;</li>
+        <li>Issues caused by the Client bypassing or circumventing managed DNS filtering or web security controls;</li>
+        <li>Unauthorised changes to firewall rules, network configuration, or managed systems made by the Client or third parties without our prior approval;</li>
+        <li>Security incidents originating from unmanaged or unauthorised devices connected to the Client&rsquo;s Network, including personal, contractor, or third-party devices not covered by the managed services;</li>
+        <li>Service disruptions caused by outages or failures of third-party platforms, cloud services, or software upon which the managed services depend;</li>
+        <li>Issues caused by vendor-supplied patches or updates applied as part of routine maintenance, where such patches are provided by the original software or hardware manufacturer;</li>
+        <li>Periods of scheduled maintenance and required repairs;</li>
+        <li>Causes beyond our control;</li>
+        <li>Downtimes that occur because of power or heat issues;</li>
+        <li>Causes that are not reasonably foreseeable by us, including but not limited to, interruption or failure of telecommunications or digital transmission links or internet slow-downs or failures;</li>
+        <li>Issues arising from software changes, patches, or installations made by the Client or third parties without our prior authorisation;</li>
+        <li>Out-of-date Client contact information;</li>
+        <li>Any major changes, such as version upgrade or complete reinstallation in operating system or application such as SQL or Exchange;</li>
+        <li>Any major change such as a version upgrade or replacement in major application such as ERP or Accounting Systems;</li>
+        <li>Activities related to any lawsuit, legal inquiry, e-discovery or other unforeseen request;</li>
+        <li>Physical relocation of Client&rsquo;s Network;</li>
+        <li>Peripherals external to Client&rsquo;s Network, including but not limited to 3rd party wireless keyboards, copiers, printers, Network hubs and switch and Network routers;</li>
+        <li>Client data, Client applications, and other aspects of Client&rsquo;s Network that may be corrupted or may not function; and</li>
+        <li>Causes listed in the exclusions clause of the Master Services Agreement.</li>
+    </ul>
+
+    <h3>8.2 Additional Charges</h3>
+
+    <p>Our fees for any and all of the above Excluded Services shall be an additional charge over and above the Services purchased under this SLA. Items not covered by manufacturer warranty, such as replacement of parts, may incur additional charges including, but not limited to, the cost of the required replacement parts.</p>
+
+    <h3>8.3 Scheduled Maintenance</h3>
+
+    <p>Clients shall receive advance notice via the e-mail address on file for the Client&rsquo;s account of the times the Client&rsquo;s Network will be unavailable because of Scheduled Maintenance. The window for Scheduled Maintenance is currently 2:00am to 7:00am, <?= $this->escapeHtml($this->timezone) ?>, each Thursday morning. We may revise such maintenance window period from time to time upon notice to the Client.</p>
+
+    <h2>9. Limitations on Credits and Remedies</h2>
+
+    <p>The Client is not entitled to a credit if the Client is in breach of the Agreement (including any payment obligations to us), until the Client has cured all such breaches. The Client is not entitled to a credit if downtime would not have occurred but for the Client&rsquo;s breach of the Agreement or this SLA. To receive a credit, the Client must contact its Services account manager within 30 days following the end of the downtime or the Service Level Goal miss. The Client must show that its use of the Client&rsquo;s Network was adversely affected in some way as a result of the downtime to be eligible for the credit. The remedy in this SLA is the Client&rsquo;s sole and exclusive remedy for the Client&rsquo;s Network unavailability and Service Level Goal misses. Notwithstanding anything in this SLA to the contrary, the maximum total credit for the monthly billing period, including all guarantees, shall not exceed 50% of the Client&rsquo;s fee for that billing period. Credits that would be available but for this limitation will not be carried forward to future billing periods.</p>
+
+    <h2>10. Services Delivery</h2>
+
+    <p>The Client is responsible for maintaining the following minimum requirements for the Client&rsquo;s Network:</p>
+
+    <ul>
+        <li>Hardware supported must have an existing manufacturer&rsquo;s warranty</li>
+        <li>All hardware and software must be commercial grade</li>
+        <li>Client must maintain third-party support agreement for specialised or vertical applications</li>
+        <li>All software must be legally licensed</li>
+        <li>All software in use must still be actively supported by the manufacturer</li>
+        <li>Client must have a broadband internet connection</li>
+        <li>All hardware and software solutions must be properly scaled for the task</li>
+        <li>Client must provide adequate working space for the service provider</li>
+        <li>Client must allow <?= $this->escapeHtml($companyName) ?> reasonable access and support maintenance windows for systems supported</li>
+        <li>Client must have a designated point of contact for <?= $this->escapeHtml($companyName) ?></li>
+        <li><?= $this->escapeHtml($companyName) ?> must have access to the Client&rsquo;s systems during business hours</li>
+        <li>Only devices enrolled in and managed under the Services may connect to the Client&rsquo;s Network, including via VPN, remote desktop, or any other remote access method</li>
+        <li>Client is responsible for ensuring that all employees, contractors, and third parties with access to the Client&rsquo;s Network comply with the security policies established under this Agreement</li>
+        <li>Client must not disable, uninstall, tamper with, or interfere with managed security, monitoring, or backup agents deployed by <?= $this->escapeHtml($companyName) ?></li>
+        <li>Client must not bypass or circumvent managed DNS filtering or web security controls</li>
+        <li>Client must follow reasonable security policies and guidance provided by <?= $this->escapeHtml($companyName) ?>, including but not limited to password policies and multi-factor authentication requirements</li>
+        <li>Client must report suspected security incidents to <?= $this->escapeHtml($companyName) ?> promptly via the channels listed in Section 4.1</li>
+        <li>Client must make endpoints and servers available for patching during agreed maintenance windows</li>
+        <li>Client must cooperate with backup verification and testing when requested by <?= $this->escapeHtml($companyName) ?></li>
+    </ul>
+
+    <h2>11. Integration</h2>
+
+    <p>This SLA is part of the Client&rsquo;s Agreement with <?= $this->escapeHtml($companyName) ?>.</p>
+
+    <div class="footer"></div>
+</body>
+</html>

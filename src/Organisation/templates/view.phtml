@@ -98,6 +98,13 @@ $this->pageBreadcrumbs()->setItems([
                         <span><i class="fas fa-chart-line mr-2 text-muted"></i>Monthly Report</span>
                         <small class="text-muted">Open</small>
                     </a>
+                    <?php if ($organisation->hasSla()): ?>
+                    <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                       href="<?= $this->url('report.sla-document', ['org_id' => $organisationUuid]) ?>">
+                        <span><i class="fas fa-file-contract mr-2 text-muted"></i>SLA Document</span>
+                        <small class="text-muted">Open</small>
+                    </a>
+                    <?php endif ?>
                 </div>
             </div>
         </div>
