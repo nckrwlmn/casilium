@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.2.0 - 2026-05-29
+
+### Added
+
+- add SLA document PDF generation and sending
+
+
+### Changed
+
+- updated changelog
+
+
+### Fixed
+
+- order search results by newest first
+
+
 ## v2.1.2 - 2026-05-28
 
 ### Changed
