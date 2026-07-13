@@ -26,7 +26,6 @@ services:
       MAIL_SMTP_PASSWORD: "change_me"
       MAIL_SMTP_SSL: ""
     volumes:
-      - ./:/var/www/html
       - vendor:/var/www/html/vendor
       - data:/var/www/html/data
   db:
